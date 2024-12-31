@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Matrix Full Demo (Revised)</title>
+  
+  
+  <style>
+    /* ========== 全局初始化 ========== */
+    html, body {
+      margin: 0; 
+      padding: 0; 
+      background: black; 
+      color: #0f0; 
+      font-family: monospace;
+      /* 不要在这里强制 overflow: hidden; 以免后续无法滚动
+         如果只想动画阶段不滚动，可以在JS里操作。 */
+    }
+
+    /* 整个动画的最外层容器 */
+    #intro-sequence {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; 
+      height: 100%;
+      background: black;
+      z-index: 9999;
+      overflow: hidden; /* 仅在动画阶段不让滚动条出现 */
+    }
+
+    /* ===== (1) 第一段字符雨 ===== */
+    #matrix-rain-1 {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; 
+      height: 100%;
+      background: black;
+    }
+    #canvas1 {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ===== “ShiZhong”文字容器 ===== */
+    #floating-letters {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; 
+      height: 100%;
+      pointer-events: none;
+      z-index: 10000; /* 在第一个字符雨之上 */
+    }
+    .letter {
+      position: absolute;
+      /* 与字符雨一样的字体与颜色 */
+      font-family: monospace;
+      font-size: 16px;     /* 和字符雨相同字号 */
+      color: #0f0;
+      transform: translate(-50%, -50%);
+      transition: all 1.5s ease;
+    }
+    .fade-out {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(2);
+    }
+
+    /* ===== (2) 经典控制台风格信息 ===== */
+    #console-lines {
+      position: absolute;
+      top: 20%;
+      left: 10%;
+      display: none;    /* 初始隐藏 */
+      color: #0f0;
+    }
+    .console-line {
+      margin: 10px 0;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    /* ===== (3) 第二段字符雨 (只由0和1组成) ===== */
+    #matrix-rain-2 {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; 
+      height: 100%;
+      background: black;
+      display: none; 
+    }
+    #canvas2 {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ===== (4) 聚焦“0”放大退场 ===== */
+    #big-zero {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.01);
+      font-size: 200px;
+      color: #0f0;
+      opacity: 0;
+      pointer-events: none;
+      font-family: monospace;
+    }
+    .zoom-in {
+      animation: zoomIntoZero 3s forwards;
+    }
+    @keyframes zoomIntoZero {
+      0% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(0.01);
+      }
+      70% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(3);
+      }
+      100% {
+        opacity: 0; 
+        transform: translate(-50%, -50%) scale(20);
+      }
+    }
+
+    /* ===== (5) 最终网站容器 ===== */
+    #main-content {
+      display: none;  
+      min-height: 100vh;
+      background: #0e1117;
+      color: #fff;
+      position: relative;
+      z-index: 1;
+      /* 让主内容可滚动 */
+      overflow: auto;
+    }
+
+    /* 示范性网站样式（可随意修改） */
+    header, section, footer {
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
+    }
+    header {
+      background: #1a1d25;
+      text-align: center;
+    }
+    nav a {
+      color: #61dafb;
+      text-decoration: none;
+      margin: 0 10px;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    .hero {
+      text-align: center;
+      padding: 50px 20px;
+      background: linear-gradient(45deg, #0f2027, #203a43, #2c5364);
+    }
+    footer {
+      background: #1a1d25;
+      text-align: center;
+      padding: 10px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ======== 多段动画容器 ======== -->
+  <div id="intro-sequence">
+    <!-- (1) 第一段字符雨 -->
+    <div id="matrix-rain-1">
+      <canvas id="canvas1"></canvas>
+    </div>
+
+    <!-- “ShiZhong”文字容器 -->
+    <div id="floating-letters"></div>
+
+    <!-- (2) 控制台信息 -->
+    <div id="console-lines">
+      <div class="console-line" id="line1"></div>
+      <div class="console-line" id="line2"></div>
+      <div class="console-line" id="line3"></div>
+    </div>
+
+    <!-- (3) 第二段字符雨 (只由 0 和 1 组成) -->
+    <div id="matrix-rain-2">
+      <canvas id="canvas2"></canvas>
+    </div>
+
+    <!-- (4) 聚焦 “0” 并放大退场 -->
+    <div id="big-zero">0</div>
+  </div>
+
+  <!-- ======== (5) 最终网站内容 ======== -->
+  <div id="main-content">
+    <!-- 这里您可以粘贴完整的“始钟”网站HTML内容 -->
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>始钟 - 神秘时钟艺术品</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #0e1117;
+            color: #ffffff;
+        }
+        header {
+            background: #1a1d25;
+            padding: 20px;
+            text-align: center;
+        }
+        header h1 {
+            font-size: 2.5rem;
+            margin: 0;
+        }
+        nav {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 10px 0;
+        }
+        nav a {
+            color: #61dafb;
+            text-decoration: none;
+        }
+        nav a:hover {
+            text-decoration: underline;
+        }
+        section {
+            padding: 20px;
+            max-width: 800px;
+            margin: auto;
+        }
+        .hero {
+            text-align: center;
+            padding: 50px 20px;
+            background: linear-gradient(45deg, #0f2027, #203a43, #2c5364);
+        }
+        .hero h2 {
+            font-size: 2rem;
+        }
+        .hero p {
+            font-size: 1.2rem;
+        }
+        footer {
+            background: #1a1d25;
+            text-align: center;
+            padding: 10px;
+            position: fixed;
+            width: 100%;
+            bottom: 0;
+        }
+      /* 产品内容区域 */
+     /* 产品内容区域 */
+    .product-section {
+        padding: 20px;
+        max-width: 800px; /* 限制内容最大宽度 */
+        margin: 0 auto; /* 居中整个内容 */
+    }
+
+    .product-section h2 {
+        font-size: 24px;
+        margin-bottom: 20px;
+        text-align: left; /* 确保标题左对齐 */
+    }
+
+    .product-content {
+        display: flex; /* 使用 flexbox 布局 */
+        align-items: flex-start; /* 垂直方向顶部对齐 */
+        gap: 20px; /* 添加文字和图片之间的间距 */
+    }
+
+    /* 产品文字部分 */
+    .product-text {
+        flex: 1; /* 文字部分占据剩余空间 */
+        text-align: left; /* 确保文字左对齐 */
+    }
+
+    .product-text p {
+        margin: 0 0 10px;
+        line-height: 1.6;
+    }
+
+    /* 滑动容器 */
+    .slider-container {
+        position: relative;
+        flex-shrink: 0; /* 防止容器缩小 */
+        width: 300px; /* 固定图片容器宽度 */
+        height: 300px; /* 固定图片容器高度 */
+        overflow: hidden; /* 隐藏超出容器的部分 */
+        border-radius: 10px; /* 圆角效果 */
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3); /* 阴影效果 */
+    }
+
+    /* 滑动图片区域 */
+    .slider {
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+
+    /* 每张图片样式 */
+    .slider-image {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%; /* 图片宽度占满容器 */
+        height: 100%; /* 高度自适应容器 */
+        object-fit: cover; /* 图片保持比例填充容器 */
+        border-radius: 8px; /* 圆角效果 */
+        transition: transform 0.5s ease, opacity 0.5s ease, z-index 0.5s ease; /* 平滑过渡效果 */
+    }
+
+    /* 左右按钮 */
+    .slider-button {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+        border: none;
+        padding: 10px;
+        cursor: pointer;
+        z-index: 3; /* 按钮始终在顶层 */
+    }
+
+    .slider-button.left {
+        left: 10px;
+    }
+
+    .slider-button.right {
+        right: 10px;
+    }
+
+    .slider-button:hover {
+        background-color: rgba(0, 0, 0, 0.8);
+    }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>始钟</h1>
+        <nav>
+            <a href="#product">产品介绍</a>
+            <a href="#features">产品特点</a>
+            <a href="#specs">技术参数</a>
+            <a href="#usage">使用说明</a>
+            <a href="#manual">说明书</a>
+            <a href="#faq">常见问题</a>
+            <a href="#future">未来功能升级</a>
+            <a href="#contact">联系我们</a>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <h2>不忘初心，方得始“钟”</h2>
+        <p>体验现代科技与艺术的完美结合，悬浮指针带来神秘视觉体验。</p>
+    </section>
+
+   <section id="product" class="product-section">
+    <h2>产品介绍</h2>
+    <div class="product-content">
+        <div class="product-text">
+            <p>这款时钟是一款仿造卡地亚经典神秘钟设计的艺术品，融合了精密机械和现代技术。</p>
+            <p>适合用于家庭装饰、收藏或作为高端礼品。</p>
+        </div>
+        <!-- 图片滑动容器 -->
+        <div class="slider-container">
+            <div class="slider">
+                <img src="images/image1.jpg" alt="时钟图片1" class="slider-image">
+                <img src="images/image2.jpg" alt="时钟图片2" class="slider-image">
+            </div>
+            <!-- 左右按钮 -->
+            <button class="slider-button left" onclick="slideLeft()">&#10094;</button>
+            <button class="slider-button right" onclick="slideRight()">&#10095;</button>
+        </div>
+    </div>
+</section>
+
+    <section id="features">
+        <h2>产品特点</h2>
+        <ul>
+            <li>完全镂空设计，呈现出悬浮的视觉效果。</li>
+            <li>磁力装置驱动，指针悬浮于表盘中央。</li>
+            <li>步进电机带动齿轮系统，确保时针与分针的平稳运行。</li>
+            <li>白色树脂 3D 打印，配合聚四氟乙烯润滑材料。</li>
+            <li>手动校时，兼具复古感与实用性。</li>
+        </ul>
+    </section>
+
+    <section id="specs">
+        <h2>技术参数</h2>
+        <ul>
+            <li>微控制器：Waveshare RP2040-Zero</li>
+            <li>驱动系统：步进电机与齿轮传动</li>
+            <li>电源要求：直流 5V（2A~3A）</li>
+            <li>材料：白色树脂（3D 打印）</li>
+            <li>润滑：聚四氟乙烯材料</li>
+            <li>磁力装置：8*3mm 钕磁铁 N35、N52</li>
+            <li>校时方式：手动调整</li>
+        </ul>
+    </section>
+
+    <section id="usage">
+        <h2>使用说明</h2>
+        <ol>
+            <li>初次使用：
+                <ul>
+                    <li>检查所有部件是否完好无损。</li>
+                    <li>使用直流 5V 适配器连接电源插口。</li>
+                </ul>
+            </li>
+            <li>校准时间：
+                <ol>
+                    <li>轻轻将表盘从底座中拔出。</li>
+                    <li>调整分针到当前时刻。</li>
+                    <li>调整时针磁力轮盘，确保指针跟随轮盘移动。</li>
+                    <li>重新安装部件。</li>
+                </ol>
+            </li>
+            <li>日常维护：
+                <ul>
+                    <li>定期检查指针运作是否顺畅。</li>
+                    <li>必要时添加润滑材料。</li>
+                </ul>
+            </li>
+        </ol>
+    </section>
+
+     <section id="manual">
+        <h2>说明书</h2>
+        <p>点击以下链接下载始钟的完整说明书：</p>
+        <a href="documents/shizhong_manual.pdf" target="_blank" download>下载说明书</a>
+    </section>
+
+    <section id="faq">
+        <h2>常见问题</h2>
+        <ul>
+            <li>指针不动或运行不顺畅？检查磁力装置是否正常工作，并确保润滑足够。</li>
+            <li>时间校准后指针仍有偏差？检查齿轮传动系统是否安装到位。</li>
+        </ul>
+    </section>
+
+    <section id="future">
+        <h2>未来功能升级</h2>
+        <ul>
+            <li>增加联网功能，实现自动校时和智能化操作。</li>
+            <li>提供多种个性化外观设计与配件选项。</li>
+            <li>支持更多显示模式和节能功能。</li>
+        </ul>
+    </section>
+
+    <section id="contact">
+        <h2>联系我们</h2>
+        <p>邮箱：<a href="mailto:2385780717@qq.com">2385780717@qq.com</a></p>
+        <p>电话：+86-152-7257-3690</p>
+    </section>
+
+    <footer>
+        &copy; 2024 始钟. 保留所有权利。
+    </footer>
+ <script>
+    let currentIndex = 0; // 当前显示的图片索引
+    const images = document.querySelectorAll('.slider-image'); // 获取所有图片
+    const totalImages = images.length; // 图片总数
+
+    // 向左滑动
+    function slideLeft() {
+        // 将当前图片设置为底层
+        images[currentIndex].style.zIndex = 1;
+        images[currentIndex].style.opacity = 0.9;
+        images[currentIndex].style.transform = 'translateX(30%)'; // 部分重叠到右侧
+
+        // 切换到上一张图片
+        currentIndex = (currentIndex - 1 + totalImages) % totalImages;
+
+        // 将新图片设置为顶层
+        images[currentIndex].style.zIndex = 2;
+        images[currentIndex].style.opacity = 1;
+        images[currentIndex].style.transform = 'translateX(0)'; // 居中显示
+    }
+
+    // 向右滑动
+    function slideRight() {
+        // 将当前图片设置为底层
+        images[currentIndex].style.zIndex = 1;
+        images[currentIndex].style.opacity = 0.9;
+        images[currentIndex].style.transform = 'translateX(-30%)'; // 部分重叠到左侧
+
+        // 切换到下一张图片
+        currentIndex = (currentIndex + 1) % totalImages;
+
+        // 将新图片设置为顶层
+        images[currentIndex].style.zIndex = 2;
+        images[currentIndex].style.opacity = 1;
+        images[currentIndex].style.transform = 'translateX(0)'; // 居中显示
+    }
+</script>
+
+
+</body>
+</html>
+
+  <script>
+    /*************************************************************
+     * (1) 第一段字符雨逻辑
+     *************************************************************/
+    const canvas1 = document.getElementById("canvas1");
+    const ctx1 = canvas1.getContext("2d");
+
+    let width1, height1;
+    let fontSize1 = 16;
+    let columns1;
+    let drops1 = [];
+
+    // 第一段字符雨的字符集
+    const matrixChars = "アァィイゥウェエォオカガキギクグケゲコゴ0123456789#$%&*+ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+    function resizeCanvas1() {
+      width1 = window.innerWidth;
+      height1 = window.innerHeight;
+      canvas1.width = width1;
+      canvas1.height = height1;
+      columns1 = Math.floor(width1 / fontSize1);
+      drops1 = Array(columns1).fill(1);
+    }
+    window.addEventListener("resize", resizeCanvas1);
+    resizeCanvas1();
+
+    function drawMatrix1() {
+      ctx1.fillStyle = "rgba(0, 0, 0, 0.05)";
+      ctx1.fillRect(0, 0, width1, height1);
+
+      ctx1.fillStyle = "#0F0";
+      ctx1.font = fontSize1 + "px monospace";
+
+      for (let i = 0; i < columns1; i++) {
+        const text = matrixChars[Math.floor(Math.random() * matrixChars.length)];
+        const x = i * fontSize1;
+        const y = drops1[i] * fontSize1;
+        ctx1.fillText(text, x, y);
+
+        // 超出屏幕或随机重置
+        if (y > height1 && Math.random() > 0.975) {
+          drops1[i] = 0;
+        }
+        drops1[i]++;
+      }
+    }
+    let rain1Interval = setInterval(drawMatrix1, 40);
+
+    /* 5秒后停止第1段字符雨，并抽取8字符组成“ShiZhong” */
+    const formingWord = "ShiZhong";
+    const formingCount = formingWord.length;
+    const formingIndexes = [];
+
+    function pickColumns(count) {
+      const picked = new Set();
+      while (picked.size < count) {
+        picked.add(Math.floor(Math.random() * columns1));
+      }
+      return Array.from(picked);
+    }
+
+    const STOP_RAIN1_TIME = 5000;
+    setTimeout(() => {
+      // 停止雨动画
+      clearInterval(rain1Interval);
+
+      // 随机选8列
+      formingIndexes.push(...pickColumns(formingCount));
+
+      // 生成“ShiZhong”并移动到中心
+      createShiZhongFromRain();
+    }, STOP_RAIN1_TIME);
+
+    function createShiZhongFromRain() {
+      const floatingLetters = document.getElementById("floating-letters");
+      formingIndexes.forEach((colIndex, i) => {
+        const letter = formingWord[i];
+        let x = colIndex * fontSize1;
+        let y = drops1[colIndex] * fontSize1;
+
+        // 若在屏幕外，随机居中区位置
+        if (y < 0 || y > height1) {
+          y = height1 * 0.3 + Math.random() * (height1 * 0.4);
+        }
+
+        const span = document.createElement("span");
+        span.classList.add("letter");
+        span.textContent = letter;
+        span.style.left = x + "px";
+        span.style.top = y + "px";
+        floatingLetters.appendChild(span);
+      });
+      // 下一帧再移动
+      requestAnimationFrame(() => {
+        moveLettersToCenter();
+      });
+    }
+
+    function moveLettersToCenter() {
+      const floatingLetters = document.getElementById("floating-letters");
+      const letters = floatingLetters.querySelectorAll(".letter");
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+
+      // 8字符并排，间距40
+      const totalWidth = (formingCount - 1) * 40;
+      letters.forEach((span, idx) => {
+        let targetX = centerX - totalWidth/2 + idx*40;
+        let targetY = centerY;
+        // 移动到该位置
+        span.style.left = targetX + "px";
+        span.style.top = targetY + "px";
+      });
+
+      // 2秒后淡出
+      setTimeout(() => {
+        letters.forEach((span) => {
+          span.classList.add("fade-out");
+        });
+        // 等最后一个淡出完成后 → 下一步：显示控制台信息
+        letters[letters.length - 1].addEventListener("transitionend", () => {
+          floatingLetters.innerHTML = "";
+          // 让第一段字符雨也彻底消失
+          document.getElementById("matrix-rain-1").style.display = "none";
+
+          showConsoleInfo();
+        }, { once: true });
+      }, 2000);
+    }
+
+    /*************************************************************
+     * (2) 显示控制台信息（纯黑背景）
+     *************************************************************/
+    const consoleEl = document.getElementById("console-lines");
+    const line1 = document.getElementById("line1");
+    const line2 = document.getElementById("line2");
+    const line3 = document.getElementById("line3");
+    const consoleMsgs = [
+      "Call trans opt: received. 2-19-98 13:24:18 REC:Log>",
+      "Trace program: running . . .",
+      "System infiltration successful."
+    ];
+
+    function showConsoleInfo() {
+      consoleEl.style.display = "block";
+      let idx = 0;
+      let consoleInterval = setInterval(() => {
+        if (idx < consoleMsgs.length) {
+          if (idx === 0) line1.textContent = consoleMsgs[0];
+          if (idx === 1) line2.textContent = consoleMsgs[1];
+          if (idx === 2) line3.textContent = consoleMsgs[2];
+          idx++;
+        } else {
+          clearInterval(consoleInterval);
+          setTimeout(startMatrixRain2, 2000);
+        }
+      }, 1500);
+    }
+
+    /*************************************************************
+     * (3) 第二段字符雨 (只包含 0,1)
+     *************************************************************/
+    const canvas2 = document.getElementById("canvas2");
+    const ctx2 = canvas2.getContext("2d");
+    let width2, height2;
+    let fontSize2 = 16;
+    let columns2;
+    let drops2 = [];
+    let rain2Interval = null;
+
+    // 只包含 0 和 1
+    const matrixChars2 = ["0", "1"];
+
+    function resizeCanvas2() {
+      width2 = window.innerWidth;
+      height2 = window.innerHeight;
+      canvas2.width = width2;
+      canvas2.height = height2;
+      columns2 = Math.floor(width2 / fontSize2);
+      drops2 = Array(columns2).fill(1);
+    }
+
+    function drawMatrix2() {
+      ctx2.fillStyle = "rgba(0, 0, 0, 0.05)";
+      ctx2.fillRect(0, 0, width2, height2);
+
+      ctx2.fillStyle = "#0F0";
+      ctx2.font = fontSize2 + "px monospace";
+
+      for (let i = 0; i < columns2; i++) {
+        const text = matrixChars2[Math.floor(Math.random() * matrixChars2.length)];
+        const x = i * fontSize2;
+        const y = drops2[i] * fontSize2;
+        ctx2.fillText(text, x, y);
+
+        if (y > height2 && Math.random() > 0.975) {
+          drops2[i] = 0;
+        }
+        drops2[i]++;
+      }
+    }
+
+    function startMatrixRain2() {
+      consoleEl.style.display = "none";
+      document.getElementById("matrix-rain-2").style.display = "block";
+      resizeCanvas2();
+      window.addEventListener("resize", resizeCanvas2);
+      rain2Interval = setInterval(drawMatrix2, 40);
+
+      // 5秒后聚焦“0”
+      setTimeout(zoomIntoZero, 5000);
+    }
+
+    /*************************************************************
+     * (4) 聚焦“0”并放大退场
+     *************************************************************/
+    const bigZero = document.getElementById("big-zero");
+    function zoomIntoZero() {
+      clearInterval(rain2Interval);
+      document.getElementById("matrix-rain-2").style.display = "none";
+      // 显示大 "0"
+      bigZero.style.opacity = 1;
+      bigZero.classList.add("zoom-in");
+      // 动画结束后，加载最终网页
+      bigZero.addEventListener("animationend", showMainContent, { once: true });
+    }
+
+    /*************************************************************
+     * (5) 显示主网页
+     *************************************************************/
+    function showMainContent() {
+      document.getElementById("intro-sequence").style.display = "none";
+      const mainCont = document.getElementById("main-content");
+      mainCont.style.display = "block";
+
+      // 现在允许页面滚动
+      document.body.style.overflow = "auto";
+      // 同时可以把 body 背景改为网站的风格
+      document.body.style.backgroundColor = "#0e1117";
+      document.body.style.color = "#fff";
+    }
+  </script>
+</body>
+</html>
